@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>SDL + Emscripten (ESM)</title>
+    <style>
+      html, body { margin:0; height:100%; background:#0f1117; }
+      #canvas { display:block; margin:0 auto; }
+    </style>
+  </head>
+  <body>
+    <!-- Emscripten will create and manage the canvas for SDL_Renderer -->
+    <canvas id="canvas"></canvas>
+
+    <script type="module">
+      import createSDLModule from './sdl_game.js';
+
+      // Pass in a custom canvas so SDL uses it
+      const canvas = document.getElementById('canvas');
+
+      const Module = await createSDLModule({
+        canvas,               // use our canvas
+        print: console.log,   // optional
+        printErr: console.error,
+        onAbort: (reason) => console.error('Abort:', reason),
+      });
+
+      // When compiled with -sMODULARIZE -sEXPORT_ES6, Module is created by calling the factory.
+      // SDL app begins automatically at main(), and the loop is driven by emscripten_set_main_loop.
+    </script>
+  </body>
+</html>

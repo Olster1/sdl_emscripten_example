@@ -1,5 +1,8 @@
 void initGameState(GameState *gameState) {
     gameState->initialized = true;
+    loadAnimations(gameState);
+    makePlayer(gameState);
+
 }
 
 GameState *allocateGameState() {

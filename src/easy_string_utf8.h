@@ -1,4 +1,11 @@
 /*
+A simple header include library like Sean Barret's stb libraries. 
+
+This library makes it easy to handle utf8 encoded c strings (null terminated).
+
+You have to #define EASY_STRING_IMPLEMENTATION before including the file to add the implementation part of it. 
+
+////////////////////////////////////////////////////////////////////
 
 How to use:
 
@@ -73,46 +80,52 @@ int main(int argc, char *args[]) {
  }
 
 */
-
 #ifndef EASY_STRING_UTF8_H
 #define EASY_STRING_UTF8_H
 
-#ifndef EASY_STRING_ASSERT
-#define EASY_STRING_ASSERT(statement) if(!(statement)) { int *i_ptr = 0; *(i_ptr) = 0; }
+
+#ifndef EASY_STRING_IMPLEMENTATION
+#define EASY_STRING_IMPLEMENTATION 0
 #endif
 
-#ifndef EASY_STRING_ALLOC
+#ifndef EASY_HEADERS_ASSERT
+#define EASY_HEADERS_ASSERT(statement) if(!(statement)) { int *i_ptr = 0; *(i_ptr) = 0; }
+#endif
+
+#ifndef EASY_HEADERS_ALLOC
 #include <stdlib.h>
-#define EASY_STRING_ALLOC(size) malloc(size)
+#define EASY_HEADERS_ALLOC(size) malloc(size)
 #endif
 
-#ifndef EASY_STRING_FREE
+#ifndef EASY_HEADERS_FREE
 #include <stdlib.h>
-#define EASY_STRING_FREE(ptr) free(ptr)
+#define EASY_HEADERS_FREE(ptr) free(ptr)
 #endif
 
-// ///////////////////////************ Header definitions start here *************////////////////////
-// int easyUnicode_isContinuationByte(unsigned char byte);
-// int easyUnicode_isSingleByte(unsigned char byte);
-// int easyUnicode_isLeadingByte(unsigned char byte);
+///////////////////////************ Header definitions start here *************////////////////////
+int easyUnicode_isContinuationByte(unsigned char byte);
+int easyUnicode_isSingleByte(unsigned char byte);
+int easyUnicode_isLeadingByte(unsigned char byte);
 	
-// //NOTE: this advances your pointer
-// unsigned int easyUnicode_utf8_codepoint_To_Utf32_codepoint(char **streamPtr, int advancePtr);
+//NOTE: this advances your pointer
+unsigned int easyUnicode_utf8_codepoint_To_Utf32_codepoint(char **streamPtr, int advancePtr);
 
-// int easyString_getSizeInBytes_utf8(char *string);
+int easyString_getSizeInBytes_utf8(char *string);
 
-// int easyString_getStringLength_utf8(char *string);
+int easyString_getStringLength_utf8(char *string);
 
-// unsigned int *easyUnicode_utf8StreamToUtf32Stream_allocates(char *stream);
+unsigned int *easyUnicode_utf8StreamToUtf32Stream_allocates(char *stream);
 
-// void easyString_free_Utf32_string(char *string);
+void easyString_free_Utf32_string(char *string);
 
-// int easyString_stringsMatch_withCount(char *a, int aLength, char *b, int bLength);
-// int easyString_stringsMatch_null_and_count(char *a, char *b, int bLen);
-// int easyString_stringsMatch_nullTerminated(char *a, char *b);
+int easyString_stringsMatch_withCount(char *a, int aLength, char *b, int bLength);
+int easyString_stringsMatch_null_and_count(char *a, char *b, int bLen);
+int easyString_stringsMatch_nullTerminated(char *a, char *b);
 
 
 ///////////////////////*********** Implementation starts here **************////////////////////
+
+#if EASY_STRING_IMPLEMENTATION
 
 // The leading bytes and the continuation bytes do not share values 
 // (continuation bytes start with 10 while single bytes start with 0 and longer lead bytes start with 11)
@@ -139,81 +152,48 @@ int easyUnicode_isLeadingByte(unsigned char byte) { //top bits 11
 }
 
 
-int easyUnicode_unicodeLength(char byte) {
-	unsigned char bytes2 = (1 << 3 | 1 << 2);
-	unsigned char bytes3 = (1 << 3 | 1 << 2 | 1 << 1);
-	unsigned char bytes4 = (1 << 3 | 1 << 2 | 1 << 1 | 1 << 0);
-
-	int result = 1;
-	unsigned char shiftedByte = byte >> 4;
-	if(!easyUnicode_isContinuationByte(byte) && !easyUnicode_isSingleByte(byte)) {
-		EASY_STRING_ASSERT(easyUnicode_isLeadingByte(byte));
-		if(shiftedByte == bytes2) { result = 2; }
-		if(shiftedByte == bytes3) { result = 3; }
-		if(shiftedByte == bytes4) { result = 4; }
-		if(result == 1) EASY_STRING_ASSERT(!"invalid path");
-	} 
-
-	return result;
-
+int easyUnicode_unicodeLength(unsigned char byte) {
+    if ((byte & 0x80) == 0) return 1;          // 0xxxxxxx
+    if ((byte & 0xE0) == 0xC0) return 2;       // 110xxxxx
+    if ((byte & 0xF0) == 0xE0) return 3;       // 1110xxxx
+    if ((byte & 0xF8) == 0xF0) return 4;       // 11110xxx
+    return -1; // Invalid UTF-8 leading byte
 }
 
 //NOTE: this advances your pointer
 unsigned int easyUnicode_utf8_codepoint_To_Utf32_codepoint(char **streamPtr, int advancePtr) {
 	unsigned char *stream = (unsigned char *)(*streamPtr);
 	unsigned int result = 0;
-	unsigned int sixBitsFull = (1 << 5 | 1 << 4 | 1 << 3 | 1 << 2 | 1 << 1 | 1 << 0);
-	unsigned int fiveBitsFull = (1 << 4 | 1 << 3 | 1 << 2 | 1 << 1 | 1 << 0);
-	unsigned int fourBitsFull = (1 << 3 | 1 << 2 | 1 << 1 | 1 << 0);
 
-	if(easyUnicode_isContinuationByte(stream[0])) { EASY_STRING_ASSERT(!"shouldn't be a continuation byte. Have you advanced pointer correctly?"); }
-	int unicodeLen = easyUnicode_unicodeLength(stream[0]);
+	int unicodeLen = 1;
+	if(easyUnicode_isContinuationByte(stream[0])) { 
+		result =  '?';
+	} else {
+		unicodeLen = easyUnicode_unicodeLength(stream[0]);
+	} 
+	
 	if(unicodeLen > 1) {
-		EASY_STRING_ASSERT(easyUnicode_isLeadingByte(stream[0]));
+		EASY_HEADERS_ASSERT(easyUnicode_isLeadingByte(stream[0]));
 		//needs to be decoded
-		switch(unicodeLen) {
+		switch (unicodeLen) {
 			case 2: {
-				// printf("%s\n", "two byte unicode");
-				unsigned int firstByte = stream[0];
-				unsigned int secondByte = stream[1];
-				EASY_STRING_ASSERT(easyUnicode_isContinuationByte(secondByte));
-				result |= (secondByte & sixBitsFull);
-				result |= ((firstByte & sixBitsFull) << 6);
-
-				if(advancePtr) (*streamPtr) += 2;
+				result = ((stream[0] & 0x1F) << 6) |
+						(stream[1] & 0x3F);
+				if (advancePtr) *streamPtr += 2;
 			} break;
 			case 3: {
-				// printf("%s\n", "three byte unicode");
-				unsigned int firstByte = stream[0];
-				unsigned int secondByte = stream[1];
-				unsigned int thirdByte = stream[2];
-				EASY_STRING_ASSERT(easyUnicode_isContinuationByte(secondByte));
-				EASY_STRING_ASSERT(easyUnicode_isContinuationByte(thirdByte));
-				result |= (thirdByte & sixBitsFull);
-				result |= ((secondByte & sixBitsFull) << 6);
-				result |= ((firstByte & fiveBitsFull) << 12);
-
-				if(advancePtr) (*streamPtr) += 3;
+				result = ((stream[0] & 0x0F) << 12) |
+						((stream[1] & 0x3F) << 6) |
+						(stream[2] & 0x3F);
+				if (advancePtr) *streamPtr += 3;
 			} break;
 			case 4: {
-				// printf("%s\n", "four byte unicode");
-				unsigned int firstByte = stream[0];
-				unsigned int secondByte = stream[1];
-				unsigned int thirdByte = stream[2];
-				unsigned int fourthByte = stream[3];
-				EASY_STRING_ASSERT(easyUnicode_isContinuationByte(secondByte));
-				EASY_STRING_ASSERT(easyUnicode_isContinuationByte(thirdByte));
-				EASY_STRING_ASSERT(easyUnicode_isContinuationByte(fourthByte));
-				result |= (thirdByte & sixBitsFull);
-				result |= ((secondByte & sixBitsFull) << 6);
-				result |= ((firstByte & sixBitsFull) << 12);
-				result |= ((firstByte & fourBitsFull) << 18);
-
-				if(advancePtr) (*streamPtr) += 4;
+				result = ((stream[0] & 0x07) << 18) |
+						((stream[1] & 0x3F) << 12) |
+						((stream[2] & 0x3F) << 6) |
+						(stream[3] & 0x3F);
+				if (advancePtr) *streamPtr += 4;
 			} break;
-			default: {
-				EASY_STRING_ASSERT(!"invalid path");
-			}
 		}
 	} else {
 		result = stream[0];
@@ -234,6 +214,17 @@ int easyString_getSizeInBytes_utf8(char *string) {
     return result;
 }
 
+int easyString_getSizeInBytes_utf16(u16 *string) { //doesnt include null terminator
+    size_t result = 0;
+    u16 *at = string;
+    while(*at) {
+        result += 2;
+        at++;
+    }
+    return result;
+}
+
+
 int easyString_getStringLength_utf8(char *string) {
     unsigned int result = 0;
     unsigned char *at = (unsigned char *)string;
@@ -251,12 +242,12 @@ int easyString_getStringLength_utf8(char *string) {
 //IMPORTANT: string must be null terminated. 
 unsigned int *easyUnicode_utf8StreamToUtf32Stream_allocates(char *stream) {
 	unsigned int size = easyString_getStringLength_utf8(stream) + 1; //for null terminator
-	unsigned int *result = (unsigned int *)(EASY_STRING_ALLOC(size*sizeof(unsigned int)));
+	unsigned int *result = (unsigned int *)(EASY_HEADERS_ALLOC(size*sizeof(unsigned int)));
 	unsigned int *at = result;
 	while(*stream) {
 		char *a = stream;
 		*at = easyUnicode_utf8_codepoint_To_Utf32_codepoint(&stream, 1);
-		EASY_STRING_ASSERT(stream != a);
+		EASY_HEADERS_ASSERT(stream != a);
 		at++;
 	}
 	result[size - 1] = '\0';
@@ -264,7 +255,7 @@ unsigned int *easyUnicode_utf8StreamToUtf32Stream_allocates(char *stream) {
 }
 
 void easyString_free_Utf32_string(char *string) {
-	EASY_STRING_FREE(string);
+	EASY_HEADERS_FREE(string);
 }
 
 
@@ -293,4 +284,49 @@ int easyString_stringsMatch_nullTerminated(char *a, char *b) {
     int result = easyString_stringsMatch_withCount(a, easyString_getStringLength_utf8(a), b, easyString_getStringLength_utf8(b));
     return result;
 }
+
 #endif // END OF IMPLEMENTATION
+#endif // END OF HEADER INCLUDE
+
+
+/*
+------------------------------------------------------------------------------
+This software is available under 2 licenses -- choose whichever you prefer.
+------------------------------------------------------------------------------
+ALTERNATIVE A - MIT License
+Copyright (c) 2021 Oliver Marsh
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+------------------------------------------------------------------------------
+ALTERNATIVE B - Public Domain (www.unlicense.org)
+This is free and unencumbered software released into the public domain.
+Anyone is free to copy, modify, publish, use, compile, sell, or distribute this
+software, either in source code form or as a compiled binary, for any purpose,
+commercial or non-commercial, and by any means.
+In jurisdictions that recognize copyright laws, the author or authors of this
+software dedicate any and all copyright interest in the software to the public
+domain. We make this dedication for the benefit of the public at large and to
+the detriment of our heirs and successors. We intend this dedication to be an
+overt act of relinquishment in perpetuity of all present and future rights to
+this software under copyright law.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+------------------------------------------------------------------------------
+*/

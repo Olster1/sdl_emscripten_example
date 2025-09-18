@@ -28,3 +28,5 @@ typedef u32 bool;
 #include "./easy_memory.h"
 #include "./memory_arena.h"
 #include "./easy_string_utf8.h"
+#include "./transform.cpp"
+#include "./render.h"

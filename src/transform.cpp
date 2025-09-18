@@ -18,7 +18,7 @@ SQT SQT_identity() {
     return result;
 }
 
-float16 getModelToViewSpace(TransformX T) {
+float16 getModelToViewSpace_euler(TransformX T) {
     float16 i = float16_identity();
 
     i = float16_scale(i, T.scale);

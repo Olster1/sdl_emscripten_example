@@ -1,18 +1,59 @@
-#include <SDL.h>
-#include <stdbool.h>
+#define SDL_BUILD 1
 #ifdef __EMSCRIPTEN__
+#include <SDL.h>
+#include <SDL_image.h>
 #include <emscripten/emscripten.h>
+#else 
+#include <SDL2/SDL.h>
+#include <SDL2_image/SDL_image.h>
 #endif
 
-#include "../platform.h"
-#include "../main.cpp"
+#include <stdbool.h>
 
+#include "../platform.h"
 
 static SDL_Window* window = NULL;
 static SDL_Renderer* renderer = NULL;
+
+Texture *platform_loadImage(char *fileName, Arena *arena) {
+  SDL_Surface* surface = IMG_Load(fileName);
+  if (!surface) {
+      SDL_Log("IMG_Load failed: %s", IMG_GetError());
+  }
+
+  int w = surface->w;
+  int h = surface->h;
+
+  // convert to texture
+  SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+  SDL_FreeSurface(surface);
+
+  SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
+
+  Texture *result = pushStruct(arena, Texture);
+
+  result->width = w;
+  result->height = h;
+  result->uv = make_float4(0, 0, 1, 1);
+  result->handle.handle = texture;
+
+  return result;
+}
+
+void platform_deleteTexture(Texture *t) {
+  if(t && t->handle.handle) {
+    SDL_DestroyTexture((SDL_Texture *)t->handle.handle);
+    t->handle.handle = 0;
+  }
+}
+
+#include "../main.cpp"
+#include "./backend_renderer.cpp"
+
 static int w = 800, h = 450;
 static float x = 0.f, speed = 120.f; // px/sec
 static Uint32 lastTicks = 0;
+
 
 static void frame(void* arg) {
   GameState *gameState = (GameState *)arg;
@@ -20,22 +61,14 @@ static void frame(void* arg) {
   float dt = (now - lastTicks) / 1000.0f;
   lastTicks = now;
 
-  // Move rect
-  x += speed * dt;
-  if (x < 0) { x = 0; speed = -speed; }
-  if (x > w - 100) { x = w - 100; speed = -speed; }
-
   // Draw
   SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
   SDL_RenderClear(renderer);
 
-  SDL_Rect r = { (int)x, h/2 - 25, 100, 50 };
-  SDL_SetRenderDrawColor(renderer, 220, 255, 120, 255);
-  SDL_RenderFillRect(renderer, &r);
+  updateGame(gameState);
+  processRenderGroup(renderer, &gameState->renderer, make_float2(w, h));
 
   SDL_RenderPresent(renderer);
-
-  updateGame(gameState);
 }
 
 int main(int argc, char** argv) {
@@ -58,8 +91,11 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG);
+
   initMemoryArenas();
   GameState *gameState = allocateGameState();
+  gameState->aspectRatioWindow_y_over_x = (float)h / (float)w;
 
   lastTicks = SDL_GetTicks();
 
@@ -72,10 +108,20 @@ int main(int argc, char** argv) {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
       if (e.type == SDL_QUIT) running = false;
+      if (e.type == SDL_DROPFILE) {
+        char* droppedFile = e.drop.file;
+        gameState->dragFileName = droppedFile;
+
+      }
     }
     refreshPerFrameArena();
     frame(gameState);
     SDL_Delay(16);
+
+    if(gameState->dragFileName) {
+      SDL_free(gameState->dragFileName);
+      gameState->dragFileName = 0;
+    }
   }
   SDL_Quit();
 #endif

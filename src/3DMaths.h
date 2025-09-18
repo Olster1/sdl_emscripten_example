@@ -109,8 +109,14 @@ static float lerp(float a, float b, LerpTValue t) {
 	return (b - a)*t.value + a;
 }
 
-float randomBetween(float min, float max) { //inclusive for both min & max
-	return lerp(min, max, make_lerpTValue((float)rand() / (float)RAND_MAX));
+
+inline float random_between_float(float a, float b) {
+    // Generate a random float between a and b (exclusive)
+    return a + ((float)rand() / (float)RAND_MAX) * (b - a);
+}
+
+int random_between_int(int a, int b) {
+    return a + rand() % (b - a);  // Generate an integer between a and b (exclusive)
 }
 
 struct float2

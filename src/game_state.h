@@ -17,6 +17,7 @@ struct GameState {
 
     AnimationState animationState;
     DefaultEntityAnimations playerAnimations;
+    ImageFiles imageFiles;
 
     Camera camera;
 };

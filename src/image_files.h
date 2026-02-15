@@ -1,0 +1,3 @@
+struct ImageFiles {
+    Texture *mapImage;
+};

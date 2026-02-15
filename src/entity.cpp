@@ -18,7 +18,7 @@ void makePlayer(GameState *gameState) {
 
 void updateEntity(GameState *gameState, Entity *e, float dt) {
     if(e->flags & ENTITY_FLAG_MOVE_PLAYER) {
-        // updatePlayer(gameState, e, dt);
+        // updatePlayerInput(gameState, e, dt);
     }
 }
 

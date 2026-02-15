@@ -18,6 +18,15 @@ SQT SQT_identity() {
     return result;
 }
 
+TransformX make_transformX(float3 pos, float3 scale, float4 rotation) {
+    TransformX t = {};
+    t.pos = pos; 
+    t.scale = scale;
+    t.rotation = rotation;
+
+    return t;
+}
+
 float16 getModelToViewSpace_euler(TransformX T) {
     float16 i = float16_identity();
 

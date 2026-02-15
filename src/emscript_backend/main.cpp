@@ -18,7 +18,9 @@ static SDL_Renderer* renderer = NULL;
 Texture *platform_loadImage(char *fileName, Arena *arena) {
   SDL_Surface* surface = IMG_Load(fileName);
   if (!surface) {
-      SDL_Log("IMG_Load failed: %s", IMG_GetError());
+      printf("IMG_Load failed: %s", IMG_GetError());
+      assert(false);
+      return 0;
   }
 
   int w = surface->w;

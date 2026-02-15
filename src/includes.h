@@ -5,6 +5,7 @@
 #include "./animation.cpp"
 #include "./entity.h"
 #include "./map_tile.cpp"
+#include "./image_files.h"
 #include "./game_state.h"
 #include "./collision.cpp"
 #include "./load_animations.cpp"

@@ -9,6 +9,8 @@ void updateGame(GameState *gameState) {
 
     float16 worldToCameraT = makeWorldToCameraT(&gameState->camera);
     pushRenderView(&gameState->renderer, float16_multiply(viewT, worldToCameraT));        
-    
+
+    pushRenderTexture(&gameState->renderer, make_transformX(make_float3(0, 0, 10), make_float3(100, 100, 1), make_float4(0, 0, 0, 1)), gameState->imageFiles.mapImage);
     updateEntities(gameState, gameState->dt);
+    
 }

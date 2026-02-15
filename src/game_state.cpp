@@ -1,6 +1,7 @@
 void initGameState(GameState *gameState) {
     gameState->initialized = true;
     loadAnimations(gameState);
+    loadImages(gameState);
     makePlayer(gameState);
 
 }
